@@ -1,0 +1,156 @@
+
+Ниже представлена задача по классификации и кластеризации на основе датасета iris.
+
+[ ]
+import pandas as pd
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.cluster import KMeans
+from pylab import rcParams
+from sklearn.neighbors import KNeighborsClassifier
+import matplotlib.pyplot as plt
+import seaborn as sns
+[ ]
+rcParams['figure.figsize'] = 15, 8
+[ ]
+# загрузим датасет с ирисами и превратим его в датафрейм df_iris.
+
+ds_iris = load_iris()
+df_iris = pd.DataFrame(ds_iris.data, columns=ds_iris["feature_names"])
+df_iris["target"] = ds_iris["target"]
+
+df_iris
+
+[ ]
+# дропаем ненужные столбцы, а оставшиеся переименуем для более удобного использования.
+
+df_iris.drop(["petal length (cm)", "petal width (cm)"], axis = 1, inplace = True)
+df_iris.columns = ["sepal_length", "sepal_width", "variety"]
+
+df_iris.head()
+
+[ ]
+# разделяем данные на учебные и тестовые.
+
+X = df_iris[["sepal_length", "sepal_width"]]
+y = df_iris["variety"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
+[ ]
+# обучаем модель на учебных данных.
+
+model = LinearDiscriminantAnalysis()
+model.fit(X_train, y_train)
+LinearDiscriminantAnalysis()
+[ ]
+# составляем прогноз на основе полученной модели
+
+y_predict = model.predict(X_test)
+
+y_predict
+array([1, 0, 2, 1, 2, 0, 1, 2, 2, 1, 2, 0, 0, 0, 0, 1, 2, 1, 1, 2, 0, 1,
+       0, 2, 2, 2, 2, 2, 0, 0])
+[ ]
+# создадим датасет сравнения тестовых и спрогнозипрованных данных просто для наглядности.
+
+ds_variety = {"variety" : y_test,
+             "predict" : y_predict}
+
+df_variety = pd.DataFrame(ds_variety)
+
+df_variety.head()
+
+[ ]
+# выделим для наглядности те строки, где модель ошиблась (значения столбцов не совпадают).
+
+def error(row):
+  """
+  Функция error(row) считает разницу между столбцами variety и predict.
+  """
+  error = row.variety - row.predict
+  return error
+
+df_variety["error"] = df_variety.apply(error, axis = 1)
+
+df_error = df_variety[df_variety.error != 0]
+
+df_error.head()
+
+[ ]
+# Для составления визуализации по предсказаниям удалим столбец error.
+
+df_variety.drop(["error"], axis = 1, inplace = True)
+
+df_variety.head()
+
+[ ]
+# А так же добавим столбец тестовых данных.
+
+test_x = pd.DataFrame(X_test)
+df_variety = df_variety.join(test_x, how = "outer")
+df_variety.drop(["sepal_width"], axis = 1, inplace = True)
+df_variety.columns = ["variety", "predict", "test"]
+df_variety.head()
+
+[ ]
+# и составим визуализацию предсказанных моедлью значений.
+
+df_variety.plot.scatter(x = "predict",
+                          y = "test",
+                          title = "Предсказания для тестовой выборки")
+
+[ ]
+# для нагладности сгенерируем точечную диаграмму датасета df_iris, состоящего из двух столбцов sepal_length и sepal_width.
+
+df_iris.plot.scatter(x = "sepal_length",
+                          y = "sepal_width",
+                          title = "График остатков")
+
+[ ]
+# построим график ошибок для каждого количества кластеров от 1 до 10, чтобы найти оптимальное количество кластеров.
+
+errors = []
+
+for i in np.arange(1, 11):
+    model_kmeans = KNeighborsClassifier(n_neighbors = i)
+    model_kmeans.fit(X_train, y_train)
+    new_predictions = model_kmeans.predict(X_test)
+    errors.append(np.mean(new_predictions != y_test))
+
+plt.plot(errors)
+
+[ ]
+# из графика выше видно, что минимальное количество ошибок достигается при наличии 2х кластеров. Возмем для расчета данное число кластеров.
+
+kmeans_model = KMeans(n_clusters = 2,
+                      init = "k-means++",
+                        n_init = 10,
+                        max_iter = 300,
+                        random_state = 0)
+kmeans_model.fit(df_iris)
+predict = kmeans_model.predict(df_iris)
+
+
+array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+       1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+       0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int32)
+[ ]
+# найдем центры каждого из кластеров.
+
+kmeans_model.cluster_centers_
+array([[6.33617021, 2.89680851, 1.53191489],
+       [5.01607143, 3.32678571, 0.10714286]])
+[ ]
+# и визуализируем результаты кластеризации модели.
+
+f, (ax1, ax2) = plt.subplots(1, 2, sharey = True, figsize = (10, 6))
+ax1.set_title('Наши прогнозы')
+ax1.scatter(df_iris[0][:,0], df_iris[0][:,1], c = model.labels_)
+ax2.set_title('Реальные значения')
+ax2.scatter(df_iris[0][:,0], df_iris[0][:,1], c = df_iris[1])
